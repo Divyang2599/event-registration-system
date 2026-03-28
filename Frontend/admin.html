@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin – Event Registrations</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; padding: 40px 20px; }
+    h1 { color: #1a56db; margin-bottom: 4px; }
+    p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    button { padding: 10px 20px; background: #1a56db; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    button:hover { background: #1e429f; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    th { background: #1a56db; color: white; padding: 14px 16px; text-align: left; font-size: 13px; }
+    td { padding: 12px 16px; font-size: 14px; color: #374151; border-bottom: 1px solid #f3f4f6; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #dbeafe; color: #1e40af; }
+    .empty { text-align: center; padding: 40px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
+  <p>All event registrations</p>
+
+  <div class="toolbar">
+    <span id="count" style="font-size:14px;color:#6b7280"></span>
+    <button onclick="exportCSV()">Export CSV</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Event</th>
+        <th>Registered At</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    const API = "https://event-reg-func-2599.azurewebsites.net/api";
+    let data = [];
+
+    async function load() {
+      const res = await fetch(`${API}/get_registrations`);
+      data = await res.json();
+      const tbody = document.getElementById("tbody");
+      document.getElementById("count").textContent = `${data.length} registrant(s)`;
+      if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty">No registrations yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.map(r => `
+        <tr>
+          <td>${r.name}</td>
+          <td>${r.email}</td>
+          <td><span class="badge">${r.event}</span></td>
+          <td>${new Date(r.registeredAt).toLocaleString()}</td>
+        </tr>
+      `).join("");
+    }
+
+    function exportCSV() {
+      const rows = [["Name","Email","Event","Registered At"]];
+      data.forEach(r => rows.push([r.name, r.email, r.event, r.registeredAt]));
+      const csv = rows.map(r => r.join(",")).join("\n");
+      const a = document.createElement("a");
+      a.href = "data:text/csv," + encodeURIComponent(csv);
+      a.download = "registrations.csv";
+      a.click();
+    }
+
+    load();
+  </script>
+</body>
+</html>

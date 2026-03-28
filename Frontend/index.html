@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Registration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); width: 100%; max-width: 480px; }
+    h1 { color: #1a56db; margin-bottom: 8px; font-size: 24px; }
+    p { color: #6b7280; margin-bottom: 28px; font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 20px; outline: none; transition: border 0.2s; }
+    input:focus, select:focus { border-color: #1a56db; }
+    button { width: 100%; padding: 12px; background: #1a56db; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #1e429f; }
+    .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; text-align: center; display: none; }
+    .msg.success { background: #d1fae5; color: #065f46; display: block; }
+    .msg.error { background: #fee2e2; color: #991b1b; display: block; }
+    .admin-link { text-align: center; margin-top: 20px; }
+    .admin-link a { font-size: 13px; color: #6b7280; text-decoration: none; }
+    .admin-link a:hover { color: #1a56db; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Event Registration</h1>
+    <p>Register for an upcoming Algonquin College Cloud workshop</p>
+
+    <label>Full Name</label>
+    <input type="text" id="name" placeholder="Divyang Lodariya">
+
+    <label>Email Address</label>
+    <input type="email" id="email" placeholder="you@algonquinlive.com">
+
+    <label>Select Event</label>
+    <select id="event">
+      <option value="">-- Choose an event --</option>
+      <option value="Cloud Workshop">Cloud Workshop – April 2026</option>
+      <option value="DevOps Bootcamp">DevOps Bootcamp – May 2026</option>
+      <option value="Azure Fundamentals">Azure Fundamentals – June 2026</option>
+    </select>
+
+    <button onclick="register()">Register Now</button>
+    <div class="msg" id="msg"></div>
+    <div class="admin-link"><a href="admin.html">Admin View →</a></div>
+  </div>
+
+  <script>
+    const API = "https://event-reg-func-2599.azurewebsites.net/api";
+
+    async function register() {
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const event = document.getElementById("event").value;
+      const msg = document.getElementById("msg");
+
+      msg.className = "msg";
+      msg.style.display = "none";
+
+      if (!name || !email || !event) {
+        msg.className = "msg error";
+        msg.textContent = "Please fill in all fields.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, event })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.className = "msg success";
+          msg.textContent = `✅ ${data.message}`;
+          document.getElementById("name").value = "";
+          document.getElementById("email").value = "";
+          document.getElementById("event").value = "";
+        } else {
+          msg.className = "msg error";
+          msg.textContent = `❌ ${data.error}`;
+        }
+      } catch (e) {
+        msg.className = "msg error";
+        msg.textContent = "❌ Could not connect to server.";
+      }
+    }
+  </script>
+</body>
+</html>
