@@ -1,69 +1,319 @@
 import azure.functions as func
 import json
-import uuid
 import os
-from datetime import datetime, timezone
+import base64
+import hashlib
+import secrets
+import re
+from datetime import datetime
 from azure.data.tables import TableServiceClient
 
 app = func.FunctionApp()
 
-# Connection setup - Client is initialized globally for connection pooling
-CONN_STR = os.environ.get("AzureStorageConnectionString")
-service = TableServiceClient.from_connection_string(CONN_STR)
-table_client = service.get_table_client("registrations")
 
-def get_auth_user(req):
-    """Retrieves the authenticated user's email from EasyAuth headers."""
-    return req.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
-
-@app.route(route="register", methods=["POST", "OPTIONS"])
-def register(req: func.HttpRequest) -> func.HttpResponse:
-    cors_headers = {
-        "Access-Control-Allow-Origin": "*", 
-        "Access-Control-Allow-Methods": "POST, OPTIONS", 
+# -----------------------------
+# Helpers
+# -----------------------------
+def cors_headers(methods: str) -> dict:
+    return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": methods,
         "Access-Control-Allow-Headers": "Content-Type"
     }
-    if req.method == "OPTIONS": 
-        return func.HttpResponse(status_code=204, headers=cors_headers)
 
-    user_email = get_auth_user(req)
-    if not user_email:
-        return func.HttpResponse(json.dumps({"error": "Login required"}), status_code=401, headers=cors_headers)
+
+def json_response(payload: dict | list, status_code: int = 200, methods: str = "GET, POST, OPTIONS") -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps(payload),
+        status_code=status_code,
+        mimetype="application/json",
+        headers=cors_headers(methods)
+    )
+
+
+def get_table_client(table_name: str):
+    conn_str = os.environ["AzureStorageConnectionString"]
+    service = TableServiceClient.from_connection_string(conn_str)
+    table = service.get_table_client(table_name)
+    try:
+        table.create_table()
+    except Exception:
+        # Table may already exist
+        pass
+    return table
+
+
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def slugify(value: str) -> str:
+    value = value.strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    return value.strip("-")
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
+    return base64.b64encode(salt).decode() + ":" + base64.b64encode(pwd_hash).decode()
+
+
+def verify_password(password: str, stored_value: str) -> bool:
+    try:
+        salt_b64, hash_b64 = stored_value.split(":")
+        salt = base64.b64decode(salt_b64)
+        expected_hash = base64.b64decode(hash_b64)
+        provided_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
+        return secrets.compare_digest(provided_hash, expected_hash)
+    except Exception:
+        return False
+
+
+def get_user_by_email(email: str):
+    users_table = get_table_client("users")
+    normalized = normalize_email(email)
+
+    try:
+        return users_table.get_entity(partition_key="USER", row_key=normalized)
+    except Exception:
+        return None
+
+
+def get_registration_entity(email: str, event: str):
+    registrations_table = get_table_client("registrations")
+    normalized_email = normalize_email(email)
+    event_key = slugify(event)
+
+    try:
+        return registrations_table.get_entity(partition_key=normalized_email, row_key=event_key)
+    except Exception:
+        return None
+
+
+# -----------------------------
+# Signup
+# -----------------------------
+@app.route(route="signup", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def signup(req: func.HttpRequest) -> func.HttpResponse:
+    methods = "POST, OPTIONS"
+
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=cors_headers(methods))
 
     try:
         data = req.get_json()
-        # Architecture: PartitionKey = UserEmail for high-performance user-specific queries
+        name = data.get("name", "").strip()
+        email = normalize_email(data.get("email", ""))
+        password = data.get("password", "").strip()
+
+        if not name or not email or not password:
+            return json_response({"error": "name, email and password are required"}, 400, methods)
+
+        if len(password) < 6:
+            return json_response({"error": "Password must be at least 6 characters long"}, 400, methods)
+
+        if get_user_by_email(email):
+            return json_response({"error": "An account with this email already exists"}, 409, methods)
+
+        users_table = get_table_client("users")
+        now = datetime.utcnow().isoformat()
+
         entity = {
-            "PartitionKey": user_email,
-            "RowKey": str(uuid.uuid4()),
-            "Name": data.get("name"),
-            "Email": user_email,
-            "Event": data.get("event"),
-            "RegisteredAt": datetime.now(timezone.utc).isoformat()
+            "PartitionKey": "USER",
+            "RowKey": email,
+            "Name": name,
+            "Email": email,
+            "PasswordHash": hash_password(password),
+            "CreatedAt": now
         }
-        table_client.create_entity(entity)
-        return func.HttpResponse(json.dumps({"message": f"Successfully registered for {data.get('event')}"}), status_code=201, headers=cors_headers)
+
+        users_table.create_entity(entity)
+
+        return json_response(
+            {
+                "message": "Account created successfully",
+                "name": name,
+                "email": email
+            },
+            201,
+            methods
+        )
+
+    except ValueError:
+        return json_response({"error": "Invalid JSON body"}, 400, methods)
     except Exception as e:
-        return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, headers=cors_headers)
+        return json_response({"error": str(e)}, 500, methods)
 
-@app.route(route="get_my_registrations", methods=["GET", "OPTIONS"])
-def get_my_registrations(req: func.HttpRequest) -> func.HttpResponse:
-    cors_headers = {
-        "Access-Control-Allow-Origin": "*", 
-        "Access-Control-Allow-Methods": "GET, OPTIONS", 
-        "Access-Control-Allow-Headers": "Content-Type"
-    }
-    if req.method == "OPTIONS": 
-        return func.HttpResponse(status_code=204, headers=cors_headers)
 
-    user_email = get_auth_user(req)
-    if not user_email:
-        return func.HttpResponse(json.dumps({"error": "Unauthorized"}), status_code=401, headers=cors_headers)
+# -----------------------------
+# Login
+# -----------------------------
+@app.route(route="login", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def login(req: func.HttpRequest) -> func.HttpResponse:
+    methods = "POST, OPTIONS"
+
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=cors_headers(methods))
 
     try:
-        # Efficient O(1) lookup because we are filtering by PartitionKey
-        entities = table_client.query_entities(query_filter=f"PartitionKey eq '{user_email}'")
-        result = [{"name": e.get("Name"), "event": e.get("Event"), "registeredAt": e.get("RegisteredAt")} for e in entities]
-        return func.HttpResponse(json.dumps(result), status_code=200, headers=cors_headers)
+        data = req.get_json()
+        email = normalize_email(data.get("email", ""))
+        password = data.get("password", "").strip()
+
+        if not email or not password:
+            return json_response({"error": "email and password are required"}, 400, methods)
+
+        user = get_user_by_email(email)
+        if not user:
+            return json_response({"error": "Invalid email or password"}, 401, methods)
+
+        stored_hash = user.get("PasswordHash", "")
+        if not verify_password(password, stored_hash):
+            return json_response({"error": "Invalid email or password"}, 401, methods)
+
+        return json_response(
+            {
+                "message": "Login successful",
+                "name": user.get("Name"),
+                "email": user.get("Email")
+            },
+            200,
+            methods
+        )
+
+    except ValueError:
+        return json_response({"error": "Invalid JSON body"}, 400, methods)
     except Exception as e:
-        return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, headers=cors_headers)
+        return json_response({"error": str(e)}, 500, methods)
+
+
+# -----------------------------
+# Register Event
+# -----------------------------
+@app.route(route="register", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def register(req: func.HttpRequest) -> func.HttpResponse:
+    methods = "POST, OPTIONS"
+
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=cors_headers(methods))
+
+    try:
+        data = req.get_json()
+        name = data.get("name", "").strip()
+        email = normalize_email(data.get("email", ""))
+        event = data.get("event", "").strip()
+
+        if not name or not email or not event:
+            return json_response({"error": "name, email and event are required"}, 400, methods)
+
+        user = get_user_by_email(email)
+        if not user:
+            return json_response(
+                {"error": "No account found for this email. Please sign up or log in first."},
+                401,
+                methods
+            )
+
+        existing = get_registration_entity(email, event)
+        if existing:
+            return json_response(
+                {"error": "You have already registered for this event"},
+                409,
+                methods
+            )
+
+        registrations_table = get_table_client("registrations")
+        now = datetime.utcnow().isoformat()
+
+        entity = {
+            "PartitionKey": email,
+            "RowKey": slugify(event),
+            "Name": user.get("Name"),
+            "Email": email,
+            "Event": event,
+            "RegisteredAt": now
+        }
+
+        registrations_table.create_entity(entity)
+
+        return json_response(
+            {"message": f"Registration successful for {user.get('Name')}"},
+            201,
+            methods
+        )
+
+    except ValueError:
+        return json_response({"error": "Invalid JSON body"}, 400, methods)
+    except Exception as e:
+        return json_response({"error": str(e)}, 500, methods)
+
+
+# -----------------------------
+# My Registrations
+# -----------------------------
+@app.route(route="my_registrations", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def my_registrations(req: func.HttpRequest) -> func.HttpResponse:
+    methods = "GET, OPTIONS"
+
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=cors_headers(methods))
+
+    try:
+        email = normalize_email(req.params.get("email", ""))
+
+        if not email:
+            return json_response({"error": "email query parameter is required"}, 400, methods)
+
+        registrations_table = get_table_client("registrations")
+
+        # Efficient lookup for new records where PartitionKey = user email
+        entities = list(registrations_table.query_entities(f"PartitionKey eq '{email}'"))
+
+        result = []
+        for e in entities:
+            result.append({
+                "name": e.get("Name"),
+                "email": e.get("Email"),
+                "event": e.get("Event") or e.get("PartitionKey"),
+                "registeredAt": e.get("RegisteredAt")
+            })
+
+        # Sort newest first
+        result.sort(key=lambda x: x.get("registeredAt", ""), reverse=True)
+
+        return json_response(result, 200, methods)
+
+    except Exception as e:
+        return json_response({"error": str(e)}, 500, methods)
+
+
+# -----------------------------
+# Admin - All Registrations
+# -----------------------------
+@app.route(route="get_registrations", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def get_registrations(req: func.HttpRequest) -> func.HttpResponse:
+    methods = "GET, OPTIONS"
+
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=cors_headers(methods))
+
+    try:
+        registrations_table = get_table_client("registrations")
+        entities = list(registrations_table.list_entities())
+
+        result = []
+        for e in entities:
+            result.append({
+                "name": e.get("Name"),
+                "email": e.get("Email"),
+                "event": e.get("Event") or e.get("PartitionKey"),
+                "registeredAt": e.get("RegisteredAt")
+            })
+
+        result.sort(key=lambda x: x.get("registeredAt", ""), reverse=True)
+
+        return json_response(result, 200, methods)
+
+    except Exception as e:
+        return json_response({"error": str(e)}, 500, methods)
