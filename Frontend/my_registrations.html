@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Registrations - Event Registration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .header-card {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      color: #1a56db;
+      margin-bottom: 6px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .user-info {
+      color: #374151;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn, .btn-secondary {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+    }
+    .btn {
+      background: #1a56db;
+      color: white;
+    }
+    .btn:hover {
+      background: #1e429f;
+    }
+    .btn-secondary {
+      background: white;
+      color: #1a56db;
+      border: 1px solid #c7d2fe;
+    }
+    .btn-secondary:hover {
+      background: #eff6ff;
+    }
+    .table-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #eef2f7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .table-header h2 {
+      color: #111827;
+      font-size: 20px;
+    }
+    .count {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      background: #1a56db;
+      color: white;
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 13px;
+    }
+    td {
+      padding: 14px 16px;
+      font-size: 14px;
+      color: #374151;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover td {
+      background: #f9fafb;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #dbeafe;
+      color: #1e40af;
+      display: inline-block;
+    }
+    .empty {
+      text-align: center;
+      padding: 50px 20px;
+      color: #9ca3af;
+      font-size: 15px;
+    }
+    .msg {
+      margin-bottom: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    .msg.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block !important;
+    }
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead {
+        display: none;
+      }
+      tr {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 16px;
+      }
+      td {
+        border: none;
+        padding: 8px 0;
+      }
+      td::before {
+        content: attr(data-label);
+        display: block;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 4px;
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="msg" id="msg"></div>
+
+    <div class="header-card">
+      <div class="topbar">
+        <div>
+          <h1>My Registrations</h1>
+          <p class="subtitle">View the events you have registered for.</p>
+          <p class="user-info" id="userInfo"></p>
+        </div>
+
+        <div class="actions">
+          <a class="btn-secondary" href="index.html">Home</a>
+          <button class="btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <h2>Registered Events</h2>
+        <span class="count" id="count">0 registration(s)</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Registered At</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr>
+            <td colspan="4" class="empty">Loading your registrations...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API = "https://event-reg-func.azurewebsites.net/api";
+
+    const user = JSON.parse(localStorage.getItem("loggedInUser"));
+    const tbody = document.getElementById("tbody");
+    const count = document.getElementById("count");
+    const userInfo = document.getElementById("userInfo");
+    const msg = document.getElementById("msg");
+
+    function showError(text) {
+      msg.className = "msg error";
+      msg.textContent = text;
+      msg.style.display = "block";
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      window.location.href = "login.html";
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return "-";
+      return new Date(dateString).toLocaleString();
+    }
+
+    async function loadRegistrations() {
+      if (!user || !user.email) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      userInfo.textContent = `Logged in as: ${user.name || "User"} (${user.email})`;
+
+      try {
+        const res = await fetch(`${API}/my_registrations?email=${encodeURIComponent(user.email)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty">Could not load registrations.</td></tr>`;
+          showError(`❌ ${data.error || "Failed to load registrations."}`);
+          return;
+        }
+
+        count.textContent = `${data.length} registration(s)`;
+
+        if (!data.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="4" class="empty">
+                You have not registered for any events yet.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = data.map(r => `
+          <tr>
+            <td data-label="Event"><span class="badge">${r.event}</span></td>
+            <td data-label="Name">${r.name || user.name || "-"}</td>
+            <td data-label="Email">${r.email || user.email}</td>
+            <td data-label="Registered At">${formatDate(r.registeredAt)}</td>
+          </tr>
+        `).join("");
+
+      } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty">Could not connect to server.</td></tr>`;
+        showError("❌ Could not connect to server.");
+      }
+    }
+
+    loadRegistrations();
+  </script>
+</body>
+</html>
