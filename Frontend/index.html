@@ -3,90 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Event Registration</title>
+  <title>Cloud Workshop Registration</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); width: 100%; max-width: 480px; }
-    h1 { color: #1a56db; margin-bottom: 8px; font-size: 24px; }
-    p { color: #6b7280; margin-bottom: 28px; font-size: 14px; }
-    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-    input, select { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 20px; outline: none; transition: border 0.2s; }
-    input:focus, select:focus { border-color: #1a56db; }
-    button { width: 100%; padding: 12px; background: #1a56db; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #1e429f; }
-    .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; text-align: center; display: none; }
-  .msg.success { background: #d1fae5; color: #065f46; display: block !important; }
-.msg.error { background: #fee2e2; color: #991b1b; display: block !important; }
-    .admin-link { text-align: center; margin-top: 20px; }
-    .admin-link a { font-size: 13px; color: #6b7280; text-decoration: none; }
-    .admin-link a:hover { color: #1a56db; }
+    /* ... (Existing styles from your previous code) ... */
+    .user-pill { background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 99px; font-size: 12px; margin-bottom: 15px; display: inline-block; }
+    .event-item { border-left: 4px solid #1a56db; padding: 10px; background: #f9fafb; margin-bottom: 8px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Event Registration</h1>
-    <p>Register for an upcoming Algonquin College Cloud workshop</p>
+    
+    <div id="auth-gate">
+        <p>Please log in with your college account to register.</p>
+        <button onclick="window.location.href='/.auth/login/aad'">Login to Register</button>
+    </div>
 
-    <label>Full Name</label>
-    <input type="text" id="name" placeholder="Divyang Lodariya">
+    <div id="main-content" style="display:none;">
+        <div id="user-display" class="user-pill"></div>
+        
+        <label for="name">Full Name</label>
+        <input type="text" id="name" placeholder="Your Name">
 
-    <label>Email Address</label>
-    <input type="email" id="email" placeholder="you@algonquinlive.com">
+        <label for="event">Select Workshop</label>
+        <select id="event">
+          <option value="Cloud Workshop">Cloud Workshop – April 2026</option>
+          <option value="DevOps Bootcamp">DevOps Bootcamp – May 2026</option>
+          <option value="Azure Fundamentals">Azure Fundamentals – June 2026</option>
+        </select>
 
-    <label>Select Event</label>
-    <select id="event">
-      <option value="">-- Choose an event --</option>
-      <option value="Cloud Workshop">Cloud Workshop – April 2026</option>
-      <option value="DevOps Bootcamp">DevOps Bootcamp – May 2026</option>
-      <option value="Azure Fundamentals">Azure Fundamentals – June 2026</option>
-    </select>
+        <button id="reg-btn" onclick="register()">Register Now</button>
+        <div class="msg" id="msg" aria-live="polite"></div>
 
-    <button onclick="register()">Register Now</button>
-    <div class="msg" id="msg"></div>
-    <div class="admin-link"><a href="admin.html">Admin View →</a></div>
+        <hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;">
+        <h3>My Registrations</h3>
+        <div id="my-events-list" style="margin-top: 15px; font-size: 14px;">Loading...</div>
+        
+        <div class="admin-link" style="margin-top:30px;">
+            <a href="admin.html">Admin Dashboard →</a> | 
+            <a href="/.auth/logout">Logout</a>
+        </div>
+    </div>
   </div>
 
   <script>
-   const API = "https://event-reg-func.azurewebsites.net/api";
+    const API = "https://event-reg-func.azurewebsites.net/api";
+
+    async function checkAuth() {
+        try {
+            const res = await fetch("/.auth/me");
+            const data = await res.json();
+            if (data.length > 0) {
+                document.getElementById("auth-gate").style.display = "none";
+                document.getElementById("main-content").style.display = "block";
+                document.getElementById("user-display").textContent = `Logged in: ${data[0].user_id}`;
+                loadMyEvents();
+            }
+        } catch (e) { console.log("Not authenticated"); }
+    }
 
     async function register() {
-      const name = document.getElementById("name").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const event = document.getElementById("event").value;
-      const msg = document.getElementById("msg");
+        const name = document.getElementById("name").value.trim();
+        const event = document.getElementById("event").value;
+        const msg = document.getElementById("msg");
 
-      msg.className = "msg";
-      msg.style.display = "none";
-
-      if (!name || !email || !event) {
-        msg.className = "msg error";
-        msg.textContent = "Please fill in all fields.";
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API}/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, event })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          msg.className = "msg success";
-          msg.textContent = `✅ ${data.message}`;
-          document.getElementById("name").value = "";
-          document.getElementById("email").value = "";
-          document.getElementById("event").value = "";
-        } else {
-          msg.className = "msg error";
-          msg.textContent = `❌ ${data.error}`;
+        if (!name || !event) {
+            msg.className = "msg error";
+            msg.textContent = "Please enter your name.";
+            return;
         }
-      } catch (e) {
-        msg.className = "msg error";
-        msg.textContent = "❌ Could not connect to server.";
-      }
+
+        try {
+            const res = await fetch(`${API}/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, event })
+            });
+            if (res.ok) {
+                msg.className = "msg success";
+                msg.textContent = "✅ Registration successful!";
+                loadMyEvents();
+            }
+        } catch (e) { msg.className = "msg error"; msg.textContent = "Error connecting to server."; }
     }
+
+    async function loadMyEvents() {
+        const res = await fetch(`${API}/get_my_registrations`);
+        const data = await res.json();
+        const list = document.getElementById("my-events-list");
+        if (data.length === 0) {
+            list.innerHTML = "<p>You haven't registered for any events yet.</p>";
+        } else {
+            list.innerHTML = data.map(e => `
+                <div class="event-item">
+                    <strong>${e.event}</strong><br>
+                    <small>Registered: ${new Date(e.registeredAt).toLocaleDateString()}</small>
+                </div>
+            `).join("");
+        }
+    }
+
+    window.onload = checkAuth;
   </script>
 </body>
 </html>
