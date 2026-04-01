@@ -1,109 +1,428 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloud Workshop Registration</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Registration</title>
   <style>
-    /* ... (Existing styles from your previous code) ... */
-    .user-pill { background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 99px; font-size: 12px; margin-bottom: 15px; display: inline-block; }
-    .event-item { border-left: 4px solid #1a56db; padding: 10px; background: #f9fafb; margin-bottom: 8px; border-radius: 4px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      padding: 30px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .card {
+      background: white;
+      padding: 36px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a,
+    .nav-links button {
+      font-size: 13px;
+      text-decoration: none;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #1a56db;
+      font-weight: 600;
+      padding: 0;
+    }
+
+    .nav-links a:hover,
+    .nav-links button:hover {
+      text-decoration: underline;
+    }
+
+    h1 {
+      color: #1a56db;
+      margin-bottom: 8px;
+      font-size: 26px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .welcome-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .welcome-box h2 {
+      font-size: 16px;
+      color: #1e3a8a;
+      margin-bottom: 6px;
+    }
+
+    .welcome-box p {
+      font-size: 14px;
+      color: #374151;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .guest-box {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .guest-box p {
+      font-size: 14px;
+      color: #9a3412;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .guest-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .guest-actions a {
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+
+    .btn-primary-link {
+      background: #1a56db;
+      color: white;
+    }
+
+    .btn-primary-link:hover {
+      background: #1e429f;
+    }
+
+    .btn-secondary-link {
+      background: white;
+      color: #1a56db;
+      border: 1px solid #c7d2fe;
+    }
+
+    .btn-secondary-link:hover {
+      background: #eff6ff;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 18px;
+      outline: none;
+      transition: border 0.2s;
+      background: white;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #1a56db;
+    }
+
+    input[readonly] {
+      background: #f9fafb;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+
+    button.register-btn {
+      width: 100%;
+      padding: 12px;
+      background: #1a56db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button.register-btn:hover {
+      background: #1e429f;
+    }
+
+    button.register-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .msg {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+
+    .msg.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block !important;
+    }
+
+    .msg.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block !important;
+    }
+
+    .bottom-links {
+      text-align: center;
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .bottom-links a {
+      font-size: 13px;
+      color: #6b7280;
+      text-decoration: none;
+    }
+
+    .bottom-links a:hover {
+      color: #1a56db;
+    }
+
+    .hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Event Registration</h1>
-    
-    <div id="auth-gate">
-        <p>Please log in with your college account to register.</p>
-        <button onclick="window.location.href='/.auth/login/aad'">Login to Register</button>
+    <div class="top-nav">
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="my_registrations.html" id="myRegsTopLink" class="hidden">My Registrations</a>
+        <a href="login.html" id="loginTopLink">Login</a>
+        <a href="signup.html" id="signupTopLink">Sign Up</a>
+        <button id="logoutTopBtn" class="hidden" onclick="logout()">Logout</button>
+      </div>
     </div>
 
-    <div id="main-content" style="display:none;">
-        <div id="user-display" class="user-pill"></div>
-        
-        <label for="name">Full Name</label>
-        <input type="text" id="name" placeholder="Your Name">
+    <h1>Event Registration</h1>
+    <p class="subtitle">
+      Register for an upcoming Algonquin College Cloud workshop and return later to view your registrations.
+    </p>
 
-        <label for="event">Select Workshop</label>
-        <select id="event">
-          <option value="Cloud Workshop">Cloud Workshop – April 2026</option>
-          <option value="DevOps Bootcamp">DevOps Bootcamp – May 2026</option>
-          <option value="Azure Fundamentals">Azure Fundamentals – June 2026</option>
-        </select>
+    <div class="welcome-box" id="welcomeBox">
+      <h2>Welcome back</h2>
+      <p id="welcomeText"></p>
+    </div>
 
-        <button id="reg-btn" onclick="register()">Register Now</button>
-        <div class="msg" id="msg" aria-live="polite"></div>
+    <div class="guest-box" id="guestBox">
+      <p>You need to log in or create an account before registering for an event.</p>
+      <div class="guest-actions">
+        <a class="btn-primary-link" href="login.html">Login</a>
+        <a class="btn-secondary-link" href="signup.html">Create Account</a>
+      </div>
+    </div>
 
-        <hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;">
-        <h3>My Registrations</h3>
-        <div id="my-events-list" style="margin-top: 15px; font-size: 14px;">Loading...</div>
-        
-        <div class="admin-link" style="margin-top:30px;">
-            <a href="admin.html">Admin Dashboard →</a> | 
-            <a href="/.auth/logout">Logout</a>
-        </div>
+    <label for="name">Full Name</label>
+    <input type="text" id="name" placeholder="Divyang Lodariya" readonly />
+
+    <label for="email">Email Address</label>
+    <input type="email" id="email" placeholder="you@algonquinlive.com" readonly />
+
+    <label for="event">Select Event</label>
+    <select id="event">
+      <option value="">-- Choose an event --</option>
+      <option value="Cloud Workshop">Cloud Workshop – April 2026</option>
+      <option value="DevOps Bootcamp">DevOps Bootcamp – May 2026</option>
+      <option value="Azure Fundamentals">Azure Fundamentals – June 2026</option>
+    </select>
+
+    <button class="register-btn" id="registerBtn" onclick="registerEvent()" disabled>
+      Register Now
+    </button>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="bottom-links">
+      <a href="my_registrations.html" id="myRegsBottomLink" class="hidden">My Registrations →</a>
+      <a href="admin.html">Admin View →</a>
     </div>
   </div>
 
   <script>
     const API = "https://event-reg-func.azurewebsites.net/api";
 
-    async function checkAuth() {
-        try {
-            const res = await fetch("/.auth/me");
-            const data = await res.json();
-            if (data.length > 0) {
-                document.getElementById("auth-gate").style.display = "none";
-                document.getElementById("main-content").style.display = "block";
-                document.getElementById("user-display").textContent = `Logged in: ${data[0].user_id}`;
-                loadMyEvents();
-            }
-        } catch (e) { console.log("Not authenticated"); }
+    const msg = document.getElementById("msg");
+    const nameInput = document.getElementById("name");
+    const emailInput = document.getElementById("email");
+    const eventSelect = document.getElementById("event");
+    const registerBtn = document.getElementById("registerBtn");
+
+    const welcomeBox = document.getElementById("welcomeBox");
+    const welcomeText = document.getElementById("welcomeText");
+    const guestBox = document.getElementById("guestBox");
+
+    const loginTopLink = document.getElementById("loginTopLink");
+    const signupTopLink = document.getElementById("signupTopLink");
+    const logoutTopBtn = document.getElementById("logoutTopBtn");
+    const myRegsTopLink = document.getElementById("myRegsTopLink");
+    const myRegsBottomLink = document.getElementById("myRegsBottomLink");
+
+    function showMessage(type, text) {
+      msg.className = "msg " + type;
+      msg.textContent = text;
+      msg.style.display = "block";
     }
 
-    async function register() {
-        const name = document.getElementById("name").value.trim();
-        const event = document.getElementById("event").value;
-        const msg = document.getElementById("msg");
-
-        if (!name || !event) {
-            msg.className = "msg error";
-            msg.textContent = "Please enter your name.";
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API}/register`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, event })
-            });
-            if (res.ok) {
-                msg.className = "msg success";
-                msg.textContent = "✅ Registration successful!";
-                loadMyEvents();
-            }
-        } catch (e) { msg.className = "msg error"; msg.textContent = "Error connecting to server."; }
+    function clearMessage() {
+      msg.className = "msg";
+      msg.textContent = "";
+      msg.style.display = "none";
     }
 
-    async function loadMyEvents() {
-        const res = await fetch(`${API}/get_my_registrations`);
+    function getLoggedInUser() {
+      const stored = localStorage.getItem("loggedInUser");
+      if (!stored) return null;
+
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        localStorage.removeItem("loggedInUser");
+        return null;
+      }
+    }
+
+    function updateUI() {
+      const user = getLoggedInUser();
+
+      if (user && user.email) {
+        nameInput.value = user.name || "";
+        emailInput.value = user.email || "";
+
+        welcomeBox.style.display = "block";
+        guestBox.style.display = "none";
+        registerBtn.disabled = false;
+
+        welcomeText.textContent = `Logged in as ${user.name || "User"} (${user.email}). You can now register for an event or view your saved registrations.`;
+
+        loginTopLink.classList.add("hidden");
+        signupTopLink.classList.add("hidden");
+        logoutTopBtn.classList.remove("hidden");
+        myRegsTopLink.classList.remove("hidden");
+        myRegsBottomLink.classList.remove("hidden");
+      } else {
+        nameInput.value = "";
+        emailInput.value = "";
+
+        welcomeBox.style.display = "none";
+        guestBox.style.display = "block";
+        registerBtn.disabled = true;
+
+        loginTopLink.classList.remove("hidden");
+        signupTopLink.classList.remove("hidden");
+        logoutTopBtn.classList.add("hidden");
+        myRegsTopLink.classList.add("hidden");
+        myRegsBottomLink.classList.add("hidden");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      clearMessage();
+      eventSelect.value = "";
+      updateUI();
+      showMessage("success", "✅ You have been logged out.");
+    }
+
+    async function registerEvent() {
+      clearMessage();
+
+      const user = getLoggedInUser();
+      const event = eventSelect.value;
+
+      if (!user || !user.email) {
+        showMessage("error", "Please log in first.");
+        return;
+      }
+
+      if (!event) {
+        showMessage("error", "Please select an event.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: user.name,
+            email: user.email,
+            event: event
+          })
+        });
+
         const data = await res.json();
-        const list = document.getElementById("my-events-list");
-        if (data.length === 0) {
-            list.innerHTML = "<p>You haven't registered for any events yet.</p>";
+
+        if (res.ok) {
+          showMessage("success", `✅ ${data.message}`);
+          eventSelect.value = "";
         } else {
-            list.innerHTML = data.map(e => `
-                <div class="event-item">
-                    <strong>${e.event}</strong><br>
-                    <small>Registered: ${new Date(e.registeredAt).toLocaleDateString()}</small>
-                </div>
-            `).join("");
+          showMessage("error", `❌ ${data.error || "Registration failed."}`);
         }
+      } catch (e) {
+        showMessage("error", "❌ Could not connect to server.");
+      }
     }
 
-    window.onload = checkAuth;
+    updateUI();
   </script>
 </body>
 </html>
