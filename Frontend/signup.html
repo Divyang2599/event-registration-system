@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up - Event Registration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 460px;
+    }
+    h1 {
+      color: #1a56db;
+      margin-bottom: 8px;
+      font-size: 24px;
+    }
+    p {
+      color: #6b7280;
+      margin-bottom: 28px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus {
+      border-color: #1a56db;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #1a56db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #1e429f;
+    }
+    .msg {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+    .msg.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block !important;
+    }
+    .msg.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block !important;
+    }
+    .links {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .links a {
+      color: #1a56db;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .links a:hover {
+      text-decoration: underline;
+    }
+    .top-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .top-link:hover {
+      color: #1a56db;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a class="top-link" href="index.html">← Back to Home</a>
+
+    <h1>Create Account</h1>
+    <p>Sign up so you can register for events and come back later to view your registrations.</p>
+
+    <label for="name">Full Name</label>
+    <input type="text" id="name" placeholder="Divyang Lodariya" />
+
+    <label for="email">Email Address</label>
+    <input type="email" id="email" placeholder="you@algonquinlive.com" />
+
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="Create a password" />
+
+    <label for="confirmPassword">Confirm Password</label>
+    <input type="password" id="confirmPassword" placeholder="Re-enter your password" />
+
+    <button onclick="signupUser()">Create Account</button>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="links">
+      Already have an account?
+      <a href="login.html">Login here</a>
+    </div>
+  </div>
+
+  <script>
+    const API = "https://event-reg-func.azurewebsites.net/api";
+
+    const msg = document.getElementById("msg");
+
+    function showMessage(type, text) {
+      msg.className = "msg " + type;
+      msg.textContent = text;
+      msg.style.display = "block";
+    }
+
+    function clearMessage() {
+      msg.className = "msg";
+      msg.textContent = "";
+      msg.style.display = "none";
+    }
+
+    async function signupUser() {
+      clearMessage();
+
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const password = document.getElementById("password").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+      if (!name || !email || !password || !confirmPassword) {
+        showMessage("error", "Please fill in all fields.");
+        return;
+      }
+
+      if (password.length < 6) {
+        showMessage("error", "Password must be at least 6 characters long.");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showMessage("error", "Passwords do not match.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showMessage("error", `❌ ${data.error || "Signup failed."}`);
+          return;
+        }
+
+        showMessage("success", "✅ Account created successfully. Redirecting to login...");
+        document.getElementById("name").value = "";
+        document.getElementById("email").value = "";
+        document.getElementById("password").value = "";
+        document.getElementById("confirmPassword").value = "";
+
+        setTimeout(() => {
+          window.location.href = "login.html";
+        }, 1200);
+
+      } catch (error) {
+        showMessage("error", "❌ Could not connect to server.");
+      }
+    }
+  </script>
+</body>
+</html>
