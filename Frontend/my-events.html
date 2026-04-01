@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Events</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      padding: 40px 20px;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .topbar a {
+      color: #1a56db;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    h1 {
+      color: #1a56db;
+      margin-bottom: 8px;
+    }
+    p {
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+    .card h3 {
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    .card p {
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    .empty {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a href="index.html">← Back to Registration</a>
+      <a href="/.auth/logout">Logout</a>
+    </div>
+
+    <h1>My Registered Events</h1>
+    <p id="status">Loading your registrations...</p>
+
+    <div id="list"></div>
+  </div>
+
+  <script>
+    async function loadMyEvents() {
+      const status = document.getElementById("status");
+      const list = document.getElementById("list");
+
+      try {
+        const userRes = await fetch("/.auth/me");
+        const userData = await userRes.json();
+
+        if (!userData?.clientPrincipal) {
+          status.innerHTML = `You must <a href="/.auth/login/aad">sign in</a> to view your events.`;
+          return;
+        }
+
+        const res = await fetch("/api/my_registrations");
+        const data = await res.json();
+
+        if (!res.ok) {
+          status.textContent = data.error || "Unable to load your registrations.";
+          return;
+        }
+
+        if (!data.length) {
+          status.textContent = "You have not registered for any events yet.";
+          list.innerHTML = `<div class="empty">No registrations found.</div>`;
+          return;
+        }
+
+        status.textContent = `${data.length} registration(s) found.`;
+
+        list.innerHTML = data.map(item => `
+          <div class="card">
+            <h3>${item.event}</h3>
+            <p><strong>Name:</strong> ${item.name}</p>
+            <p><strong>Email:</strong> ${item.email}</p>
+            <p><strong>Registered At:</strong> ${new Date(item.registeredAt).toLocaleString()}</p>
+          </div>
+        `).join("");
+      } catch {
+        status.textContent = "Unable to connect to the server.";
+      }
+    }
+
+    loadMyEvents();
+  </script>
+</body>
+</html>
