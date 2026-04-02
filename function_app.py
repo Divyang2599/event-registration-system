@@ -5,8 +5,13 @@ import base64
 import hashlib
 import secrets
 import re
+import logging
 from datetime import datetime
 from azure.data.tables import TableServiceClient
+
+# Configure logging for Azure Application Insights
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = func.FunctionApp()
 
@@ -107,13 +112,18 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
         email = normalize_email(data.get("email", ""))
         password = data.get("password", "").strip()
 
+        logger.info(f"Signup attempt for email: {email}")
+
         if not name or not email or not password:
+            logger.warning(f"Signup failed - missing fields for: {email}")
             return json_response({"error": "name, email and password are required"}, 400, methods)
 
         if len(password) < 6:
+            logger.warning(f"Signup failed - password too short for: {email}")
             return json_response({"error": "Password must be at least 6 characters long"}, 400, methods)
 
         if get_user_by_email(email):
+            logger.warning(f"Signup failed - email already exists: {email}")
             return json_response({"error": "An account with this email already exists"}, 409, methods)
 
         users_table = get_table_client("users")
@@ -129,6 +139,7 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
         }
 
         users_table.create_entity(entity)
+        logger.info(f"New user registered successfully: {email}")
 
         return json_response(
             {
@@ -141,8 +152,10 @@ def signup(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     except ValueError:
+        logger.error("Signup failed - Invalid JSON body")
         return json_response({"error": "Invalid JSON body"}, 400, methods)
     except Exception as e:
+        logger.error(f"Signup failed with error: {str(e)}")
         return json_response({"error": str(e)}, 500, methods)
 
 
@@ -161,16 +174,23 @@ def login(req: func.HttpRequest) -> func.HttpResponse:
         email = normalize_email(data.get("email", ""))
         password = data.get("password", "").strip()
 
+        logger.info(f"Login attempt for email: {email}")
+
         if not email or not password:
+            logger.warning(f"Login failed - missing credentials for: {email}")
             return json_response({"error": "email and password are required"}, 400, methods)
 
         user = get_user_by_email(email)
         if not user:
+            logger.warning(f"Login failed - user not found: {email}")
             return json_response({"error": "Invalid email or password"}, 401, methods)
 
         stored_hash = user.get("PasswordHash", "")
         if not verify_password(password, stored_hash):
+            logger.warning(f"Login failed - invalid password for: {email}")
             return json_response({"error": "Invalid email or password"}, 401, methods)
+
+        logger.info(f"✅ User logged in successfully: {email}")
 
         return json_response(
             {
@@ -183,8 +203,10 @@ def login(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     except ValueError:
+        logger.error("Login failed - Invalid JSON body")
         return json_response({"error": "Invalid JSON body"}, 400, methods)
     except Exception as e:
+        logger.error(f"Login failed with error: {str(e)}")
         return json_response({"error": str(e)}, 500, methods)
 
 
@@ -204,11 +226,15 @@ def register(req: func.HttpRequest) -> func.HttpResponse:
         email = normalize_email(data.get("email", ""))
         event = data.get("event", "").strip()
 
+        logger.info(f"Event registration attempt: {email} -> {event}")
+
         if not name or not email or not event:
+            logger.warning(f"Registration failed - missing fields for: {email}")
             return json_response({"error": "name, email and event are required"}, 400, methods)
 
         user = get_user_by_email(email)
         if not user:
+            logger.warning(f"Registration failed - user not found: {email}")
             return json_response(
                 {"error": "No account found for this email. Please sign up or log in first."},
                 401,
@@ -217,6 +243,7 @@ def register(req: func.HttpRequest) -> func.HttpResponse:
 
         existing = get_registration_entity(email, event)
         if existing:
+            logger.warning(f"Registration failed - duplicate registration: {email} -> {event}")
             return json_response(
                 {"error": "You have already registered for this event"},
                 409,
@@ -236,6 +263,7 @@ def register(req: func.HttpRequest) -> func.HttpResponse:
         }
 
         registrations_table.create_entity(entity)
+        logger.info(f"Event registration successful: {email} -> {event}")
 
         return json_response(
             {"message": f"Registration successful for {user.get('Name')}"},
@@ -244,8 +272,10 @@ def register(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     except ValueError:
+        logger.error("Event registration failed - Invalid JSON body")
         return json_response({"error": "Invalid JSON body"}, 400, methods)
     except Exception as e:
+        logger.error(f"Event registration failed with error: {str(e)}")
         return json_response({"error": str(e)}, 500, methods)
 
 
@@ -262,7 +292,10 @@ def my_registrations(req: func.HttpRequest) -> func.HttpResponse:
     try:
         email = normalize_email(req.params.get("email", ""))
 
+        logger.info(f"Fetching registrations for: {email}")
+
         if not email:
+            logger.warning("My registrations failed - missing email parameter")
             return json_response({"error": "email query parameter is required"}, 400, methods)
 
         registrations_table = get_table_client("registrations")
@@ -282,9 +315,12 @@ def my_registrations(req: func.HttpRequest) -> func.HttpResponse:
         # Sort newest first
         result.sort(key=lambda x: x.get("registeredAt", ""), reverse=True)
 
+        logger.info(f"Retrieved {len(result)} registrations for: {email}")
+
         return json_response(result, 200, methods)
 
     except Exception as e:
+        logger.error(f"My registrations failed with error: {str(e)}")
         return json_response({"error": str(e)}, 500, methods)
 
 
@@ -299,6 +335,8 @@ def get_registrations(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(status_code=204, headers=cors_headers(methods))
 
     try:
+        logger.info("Admin: Fetching all registrations")
+
         registrations_table = get_table_client("registrations")
         entities = list(registrations_table.list_entities())
 
@@ -313,7 +351,47 @@ def get_registrations(req: func.HttpRequest) -> func.HttpResponse:
 
         result.sort(key=lambda x: x.get("registeredAt", ""), reverse=True)
 
+        logger.info(f"Admin: Retrieved {len(result)} total registrations")
+
         return json_response(result, 200, methods)
 
     except Exception as e:
+        logger.error(f"Admin get registrations failed with error: {str(e)}")
         return json_response({"error": str(e)}, 500, methods)
+
+
+# -----------------------------
+# Health Check
+# -----------------------------
+@app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def health_check(req: func.HttpRequest) -> func.HttpResponse:
+    """Health check endpoint for monitoring service availability"""
+    try:
+        logger.info("Health check initiated")
+        
+        # Test Table Storage connectivity
+        get_table_client("users")
+        
+        logger.info("Health check passed")
+        
+        return func.HttpResponse(
+            json.dumps({
+                "status": "healthy",
+                "service": "event-registration-api",
+                "timestamp": datetime.utcnow().isoformat(),
+                "database": "connected"
+            }),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return func.HttpResponse(
+            json.dumps({
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }),
+            status_code=503,
+            mimetype="application/json"
+        )
